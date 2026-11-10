@@ -1,10 +1,11 @@
 const { execFileSync } = require('node:child_process');
 const { TextDecoder } = require('node:util');
+const { discoverContext } = require('./context-discovery.cjs');
 
 const MAX_FILE_BYTES = 256 * 1024;
 const MAX_CONTEXT_BYTES = 4 * 1024 * 1024;
 
-function collectReview({ repo = process.cwd(), base, context = [] } = {}) {
+function collectReview({ repo = process.cwd(), base, context = [], discover = true } = {}) {
   function git(...args) {
     return execFileSync('git', [
       '--no-optional-locks', '--no-pager', '-c', 'core.fsmonitor=false',
@@ -84,30 +85,58 @@ function collectReview({ repo = process.cwd(), base, context = [] } = {}) {
     return { path, before: blobAt(mergeBase, path), after: blobAt(head, path) };
   });
   verifyUnchanged();
+  
+  // Discover related Java files if auto-discovery is enabled
+  let discoveredContext = [];
+  let discoveryLimitations = [];
+  if (discover) {
+    try {
+      const discovery = discoverContext({
+        repo,
+        files: files.filter(f => f.path.endsWith('.java')),
+        base: baseSha
+      });
+      discoveredContext = discovery.discovered || [];
+      discoveryLimitations = discovery.limitations || [];
+    } catch (e) {
+      // If discovery fails, include error in limitations but don't fail the review
+      discoveryLimitations.push(`Context discovery failed: ${e.message}`);
+    }
+  }
+  
+  const allLimitations = [
+    'Branch scope is not proof of individual authorship; commit author metadata is not verified identity.',
+    'Local refs only: no fetch was performed and remote freshness is unknown.',
+    'Omitted blobs and requested context must be reported as validation gaps.',
+    'The snapshot can contain source code or secrets. Share only through approved channels; redact secrets in reports.',
+    ...discoveryLimitations,
+  ];
+  
   return {
     ...snapshot, state: 'ready', base, baseSha, mergeBase,
     comparison: `git diff ${baseSha}...${head}`,
-    patch, files, requestedContext,
+    patch, files, requestedContext, discoveredContext,
     commits: text('log', '--no-show-signature', '--format=%H %an <%ae>', `${mergeBase}..${head}`, '--'),
-    limitations: [
-      'Branch scope is not proof of individual authorship; commit author metadata is not verified identity.',
-      'Local refs only: no fetch was performed and remote freshness is unknown.',
-      'Omitted blobs and requested context must be reported as validation gaps.',
-      'The snapshot can contain source code or secrets. Share only through approved channels; redact secrets in reports.',
-    ],
+    limitations: allLimitations,
   };
 }
 
 if (require.main === module) {
   try {
-    const options = { context: [] };
+    const options = { context: [], discover: true };
     const args = process.argv.slice(2);
-    for (let index = 0; index < args.length; index += 2) {
+    for (let index = 0; index < args.length; index++) {
       const option = args[index];
-      const value = args[index + 1];
-      if (!['--repo', '--base', '--context'].includes(option) || !value) throw new Error('Usage: node collect-review.cjs [--repo <path>] [--base <ref>] [--context <path>]');
-      if (option === '--context') options.context.push(value);
-      else options[option.slice(2)] = value;
+      if (option === '--no-discover') {
+        options.discover = false;
+      } else if (['--repo', '--base', '--context'].includes(option)) {
+        const value = args[++index];
+        if (!value) throw new Error('Usage: node collect-review.cjs [--repo <path>] [--base <ref>] [--context <path>] [--no-discover]');
+        if (option === '--context') options.context.push(value);
+        else options[option.slice(2)] = value;
+      } else {
+        throw new Error('Usage: node collect-review.cjs [--repo <path>] [--base <ref>] [--context <path>] [--no-discover]');
+      }
     }
     process.stdout.write(`${JSON.stringify(collectReview(options), null, 2)}\n`);
   } catch (error) {
