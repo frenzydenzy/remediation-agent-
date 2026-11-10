@@ -31,7 +31,18 @@ The complete end-to-end architecture for **AI-powered feature branch code review
 
 ---
 
-## 📖 Reading Guide
+## 📖 Complete Documentation Guide
+
+**For a comprehensive map of ALL documentation:**
+→ See [DOCUMENTATION_GUIDE.md](./DOCUMENTATION_GUIDE.md)
+
+This guide provides:
+- Quick navigation table (what to read by time available)
+- Reading paths by role (developer, manager, architect, contributor)
+- Complete file organization
+- Updated documentation after latest cleanup
+
+## 📖 Quick Reading Guide
 
 ### For Developers Using This System
 **Read in order:**
