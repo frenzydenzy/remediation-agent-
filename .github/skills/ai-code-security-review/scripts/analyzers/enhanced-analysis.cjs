@@ -106,8 +106,8 @@ function runEnhancedAnalysis(snapshot) {
   // Sort by severity and line number
   findings.sort((a, b) => {
     const severityOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-    const aSeverity = severityOrder[a.severity] || 999;
-    const bSeverity = severityOrder[b.severity] || 999;
+    const aSeverity = severityOrder[a.severity] !== undefined ? severityOrder[a.severity] : 999;
+    const bSeverity = severityOrder[b.severity] !== undefined ? severityOrder[b.severity] : 999;
 
     if (aSeverity !== bSeverity) return aSeverity - bSeverity;
     if (a.file !== b.file) return a.file.localeCompare(b.file);
