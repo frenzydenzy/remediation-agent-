@@ -1,11 +1,12 @@
 const { execFileSync } = require('node:child_process');
 const { TextDecoder } = require('node:util');
 const { discoverContext } = require('./context-discovery.cjs');
+const { runEnhancedAnalysis } = require('./analyzers/enhanced-analysis.cjs');
 
 const MAX_FILE_BYTES = 256 * 1024;
 const MAX_CONTEXT_BYTES = 4 * 1024 * 1024;
 
-function collectReview({ repo = process.cwd(), base, context = [], discover = true } = {}) {
+function collectReview({ repo = process.cwd(), base, context = [], discover = true, analyze = true } = {}) {
   function git(...args) {
     return execFileSync('git', [
       '--no-optional-locks', '--no-pager', '-c', 'core.fsmonitor=false',
@@ -112,30 +113,54 @@ function collectReview({ repo = process.cwd(), base, context = [], discover = tr
     ...discoveryLimitations,
   ];
   
+  // Run enhanced analysis if enabled
+  let enhancedAnalysisResults = {};
+  let analysisLimitations = [];
+  if (analyze) {
+    try {
+      // Prepare files for analysis (include discovered context files)
+      const filesToAnalyze = files
+        .filter(f => f.after && !f.after.omitted)
+        .map(f => ({ path: f.path, content: f.after.content }));
+      
+      const snapshot = {
+        files: filesToAnalyze,
+      };
+      
+      enhancedAnalysisResults = runEnhancedAnalysis(snapshot);
+    } catch (e) {
+      // If analysis fails, include error in limitations but don't fail the review
+      analysisLimitations.push(`Enhanced analysis failed: ${e.message}`);
+    }
+  }
+  
   return {
     ...snapshot, state: 'ready', base, baseSha, mergeBase,
     comparison: `git diff ${baseSha}...${head}`,
     patch, files, requestedContext, discoveredContext,
     commits: text('log', '--no-show-signature', '--format=%H %an <%ae>', `${mergeBase}..${head}`, '--'),
-    limitations: allLimitations,
+    limitations: [...allLimitations, ...analysisLimitations],
+    enhancedAnalysis: enhancedAnalysisResults,
   };
 }
 
 if (require.main === module) {
   try {
-    const options = { context: [], discover: true };
+    const options = { context: [], discover: true, analyze: true };
     const args = process.argv.slice(2);
     for (let index = 0; index < args.length; index++) {
       const option = args[index];
       if (option === '--no-discover') {
         options.discover = false;
+      } else if (option === '--no-analyze') {
+        options.analyze = false;
       } else if (['--repo', '--base', '--context'].includes(option)) {
         const value = args[++index];
-        if (!value) throw new Error('Usage: node collect-review.cjs [--repo <path>] [--base <ref>] [--context <path>] [--no-discover]');
+        if (!value) throw new Error('Usage: node collect-review.cjs [--repo <path>] [--base <ref>] [--context <path>] [--no-discover] [--no-analyze]');
         if (option === '--context') options.context.push(value);
         else options[option.slice(2)] = value;
       } else {
-        throw new Error('Usage: node collect-review.cjs [--repo <path>] [--base <ref>] [--context <path>] [--no-discover]');
+        throw new Error('Usage: node collect-review.cjs [--repo <path>] [--base <ref>] [--context <path>] [--no-discover] [--no-analyze]');
       }
     }
     process.stdout.write(`${JSON.stringify(collectReview(options), null, 2)}\n`);

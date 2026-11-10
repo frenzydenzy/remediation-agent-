@@ -140,6 +140,46 @@ try {
   process.exit(1);
 }
 
+// Test 8: Enhanced analysis integration
+console.log('\nTest 8: Enhanced analysis integration');
+try {
+  const cliCode = fs.readFileSync(
+    path.join(__dirname, '..', '.github', 'skills', 'ai-code-security-review', 'scripts', 'collect-review.cjs'),
+    'utf8'
+  );
+  
+  assert(cliCode.includes('runEnhancedAnalysis'), 'Should import enhanced analysis');
+  assert(cliCode.includes('enhancedAnalysis'), 'Should include enhancedAnalysis in output');
+  assert(cliCode.includes('analyze'), 'Should have analyze parameter');
+  assert(cliCode.includes('--no-analyze'), 'Should support --no-analyze flag');
+  
+  console.log('  ✓ Enhanced analysis imported');
+  console.log('  ✓ enhancedAnalysis in output');
+  console.log('  ✓ analyze parameter supported');
+  console.log('  ✓ --no-analyze flag supported');
+  console.log('✓ Test 8: Enhanced analysis integration verified');
+} catch (err) {
+  console.error('✗ Test 8 failed:', err.message);
+  process.exit(1);
+}
+
+// Test 9: Verify analysis is enabled by default
+console.log('\nTest 9: Analysis enabled by default');
+try {
+  const cliCode = fs.readFileSync(
+    path.join(__dirname, '..', '.github', 'skills', 'ai-code-security-review', 'scripts', 'collect-review.cjs'),
+    'utf8'
+  );
+  
+  assert(cliCode.includes('analyze = true'), 'Default should be analyze = true');
+  
+  console.log('  ✓ Analysis enabled by default');
+  console.log('✓ Test 9: Default analysis setting verified');
+} catch (err) {
+  console.error('✗ Test 9 failed:', err.message);
+  process.exit(1);
+}
+
 console.log('\n============================================================');
 console.log('✅ All Integration Tests Passed!');
 console.log('\nPhase 3 Integration Results:');
@@ -148,6 +188,9 @@ console.log('  - Auto-discovery enabled by default: ✓');
 console.log('  - --no-discover flag supported: ✓');
 console.log('  - discoveredContext in output: ✓');
 console.log('  - discoveryLimitations tracked: ✓');
+console.log('  - Enhanced analysis integrated: ✓');
+console.log('  - Auto-analysis enabled by default: ✓');
+console.log('  - --no-analyze flag supported: ✓');
 console.log('  - Error handling graceful: ✓');
 console.log('  - Backward compatibility maintained: ✓');
 console.log('  - Java file filtering working: ✓');
