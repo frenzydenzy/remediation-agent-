@@ -1,0 +1,17 @@
+{
+  "github-myorg-myproject": {
+    "platform": "github",
+    "owner": "myorg",
+    "repo": "myproject",
+    "url": "https://github.com/myorg/myproject",
+    "branch": "main",
+    "autoMerge": false,
+    "reviewers": [
+      "lead-dev"
+    ],
+    "labels": [],
+    "settings": {},
+    "addedAt": "2026-11-12T06:06:20.227Z",
+    "updatedAt": "2026-11-12T06:06:20.227Z"
+  }
+}

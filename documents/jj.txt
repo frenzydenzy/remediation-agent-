@@ -1,0 +1,529 @@
+# AI-Powered Feature Branch Code Review & Automated Remediation Agent
+
+## 1. Project Overview
+
+### 1.1 Objective
+
+The objective of this project is to develop an AI-powered code review and remediation system that analyses changes introduced in a developer's feature branch, identifies potential security vulnerabilities and code-quality issues, and automatically applies appropriate fixes in a separate remediation branch.
+
+The solution is divided into three independent but interconnected processes:
+
+1. **Context Acquisition Agent** – Collects relevant repository context, including existing code, dependencies, tests and configurations.
+2. **Validation & Analysis Agent** – Analyses the developer's committed changes, validates potential issues and generates structured findings.
+3. **Automated Fixation Agent** – Applies the identified fixes in a dedicated remediation branch, documents changes and prepares a pull request for human review.
+
+The overall design ensures that the original feature branch and base branch are not directly modified by the remediation process.
+
+### 1.2 Key Design Principles
+
+- Review only committed changes within the agreed feature-branch scope.
+- Use existing repository code to understand business logic and dependencies.
+- Support Java, Python and JavaScript/Node.js initially.
+- Keep context collection separate from AI analysis.
+- Apply fixes automatically for actionable findings.
+- Never modify the original feature branch or base branch during remediation.
+- Maintain a record of every finding and modification.
+- Require developer review and approval before integrating remediation changes.
+- Preserve existing Git branch protection and approval policies.
+
+---
+
+# 2. Process One: Context Acquisition
+
+## 2.1 Purpose
+
+The Context Acquisition process gathers the information required to understand the developer's code changes before the analysis begins.
+
+Analysing a changed file in isolation can result in incorrect findings because the implementation may depend on existing classes, methods, shared utilities, configurations or business logic.
+
+Therefore, this process collects relevant information from both the base branch and the feature branch.
+
+## 2.2 Input
+
+- Repository location.
+- Developer's feature branch.
+- Confirmed base/integration branch.
+- Committed feature-branch changes.
+- Repository structure and language information.
+
+## 2.3 Processing Workflow
+
+1. Identify the current feature branch and its HEAD commit.
+2. Obtain explicit confirmation of the intended base branch.
+3. Calculate the Git merge-base between the feature and base branches.
+4. Identify committed changes using the three-dot Git comparison.
+5. Detect the programming languages involved.
+6. Identify imports, dependencies, classes, methods and functions referenced by changed files.
+7. Discover relevant callers, callees, related tests and configuration files.
+8. Retrieve the required file versions from committed Git objects.
+9. Apply context-size limits and record unavailable or omitted files.
+10. Generate a structured context package for the Validation & Analysis Agent.
+
+## 2.4 Language Support
+
+| Context type | Java | Python | JavaScript / Node.js |
+|---|---|---|---|
+| Import discovery | Java imports and packages | Import and from-import statements | import and require statements |
+| Dependencies | Maven and Gradle | requirements and pyproject | package.json and lockfiles |
+| Code relationships | Classes, methods and interfaces | Functions, classes and modules | Functions, classes and modules |
+| Test discovery | JUnit and TestNG | pytest and unittest | Jest, Mocha and Node.js test |
+| Configuration | Properties, XML and YAML | Python configuration files | JSON, YAML and environment configuration |
+
+Initial discovery will use static analysis and repository conventions. Relationships that cannot be established reliably will be marked as uncertain rather than treated as confirmed.
+
+## 2.5 Architecture
+
+```mermaid
+flowchart TD
+    A["Developer Feature Branch"] --> B["Git Change Detection"]
+    B --> C["Base Branch & Merge-Base Identification"]
+    C --> D["Changed File Identification"]
+    D --> E["Programming Language Detection"]
+    E --> F["Import & Dependency Discovery"]
+    F --> G["Related Code Discovery"]
+    G --> H["Test & Configuration Discovery"]
+    H --> I["Committed Git Blob Collector"]
+    I --> J["Context Validation & Size Limits"]
+    J --> K["Structured Context Package"]
+    K --> L["Validation & Analysis Agent"]
+```
+
+## 2.6 Output
+
+A structured context package containing:
+
+- Feature branch name and HEAD SHA.
+- Confirmed base branch and base SHA.
+- Merge-base SHA.
+- Changed files and their before/after versions.
+- Relevant existing code and dependencies.
+- Related tests and configuration.
+- Reason each additional file was selected.
+- Omitted files and context limitations.
+- Evidence paths used for subsequent analysis.
+
+## 2.7 Safety Controls
+
+- Read only from committed Git objects.
+- Exclude staged, unstaged and untracked content.
+- Do not fetch or checkout branches during collection.
+- Do not silently assume the base branch.
+- Enforce file and aggregate context limits.
+- Report missing or unsupported context.
+- Never treat commit author metadata as proof of individual ownership.
+
+---
+
+# 3. Process Two: Validation & Analysis
+
+## 3.1 Purpose
+
+The Validation & Analysis process examines the committed feature-branch changes using the context package produced by Process One.
+
+Its purpose is to identify security vulnerabilities, functional defects, regressions, code-quality problems and missing test coverage introduced or worsened by the changes.
+
+This agent is strictly read-only. It identifies and recommends fixes but does not modify source files.
+
+## 3.2 Input
+
+- Structured context package.
+- Committed feature-branch diff.
+- Before/after file versions.
+- Related dependencies and existing implementation.
+- Relevant tests and configuration.
+- Repository and branch metadata.
+
+## 3.3 Processing Workflow
+
+1. Validate the context package and verify that its branch and commit identifiers match.
+2. Understand the purpose and behaviour of the changed code.
+3. Compare the original implementation with the modified implementation.
+4. Trace relevant inputs, outputs, dependencies and trust boundaries.
+5. Analyse potential security vulnerabilities.
+6. Identify functional issues and possible regressions.
+7. Evaluate relevant test coverage.
+8. Validate each candidate finding against the original base-branch implementation.
+9. Assign severity and confidence.
+10. Generate a structured findings report with evidence and recommended fixes.
+
+## 3.4 Analysis Categories
+
+| Category | Analysis focus |
+|---|---|
+| Security | SQL injection, XSS, authentication, authorization, SSRF, secrets exposure and insecure APIs |
+| Code correctness | Incorrect logic, null handling, exceptions and invalid data handling |
+| Regression | Behaviour changes affecting existing functionality |
+| Performance | Unnecessary operations, resource usage and inefficient processing |
+| Code quality | Maintainability and significant implementation issues |
+| Test coverage | Missing success, failure, edge-case and security tests |
+
+## 3.5 Severity Classification
+
+| Severity | Description |
+|---|---|
+| Critical | Severe vulnerability or failure with potentially major impact |
+| High | Significant security weakness or defect with substantial impact |
+| Medium | Meaningful issue with limited impact or constrained exploitability |
+| Low | Minor but actionable defect or risk |
+| Informational | Qualified observation that is not a confirmed defect |
+
+Confidence will be recorded separately from severity.
+
+## 3.6 Architecture
+
+```mermaid
+flowchart TD
+    A["Structured Context Package"] --> B["Context & Snapshot Validation"]
+    B --> C["Changed Code Understanding"]
+    C --> D["Before/After Comparison"]
+    D --> E["Dependency & Business Logic Analysis"]
+    E --> F["Security Analysis"]
+    E --> G["Functional & Regression Analysis"]
+    E --> H["Test Coverage Analysis"]
+    F --> I["Finding Validation"]
+    G --> I
+    H --> I
+    I --> J["Severity & Confidence Classification"]
+    J --> K["Structured Findings Report"]
+    K --> L["Automated Fixation Agent"]
+```
+
+## 3.7 Output
+
+A structured findings report containing:
+
+- Finding ID.
+- Affected file and line number.
+- Finding category.
+- Severity and confidence.
+- Description of the issue.
+- Evidence from the committed code.
+- Potential impact and exploit scenario.
+- Relevant before/after comparison.
+- Recommended remediation.
+- Suggested validation and test cases.
+- Unresolved assumptions and validation gaps.
+
+Example:
+
+| Field | Example |
+|---|---|
+| Finding ID | SEC-001 |
+| Category | Security |
+| Severity | High |
+| File | src/search-users.js |
+| Issue | SQL injection |
+| Evidence | User-controlled input directly incorporated into an SQL statement |
+| Recommendation | Use parameterized SQL queries |
+| Validation | Add tests for malicious input and normal search behaviour |
+
+## 3.8 Safety Controls
+
+- Read-only tool permissions.
+- No file modifications or Git operations.
+- No external scanner execution in this initial milestone.
+- Findings must be supported by committed evidence.
+- Existing vulnerabilities must not be reported as newly introduced unless the feature change introduces or materially worsens them.
+- Missing evidence must be reported as a validation gap.
+
+---
+
+# 4. Process Three: Automated Fixation
+
+## 4.1 Purpose
+
+The Automated Fixation process receives the validated findings and applies appropriate remediation changes in a newly created, dedicated remediation branch.
+
+The agent automatically fixes actionable findings without requesting approval for every individual fix.
+
+However, it must never modify the original feature branch or the base branch.
+
+## 4.2 Input
+
+- Structured findings report.
+- Original feature branch name.
+- Original feature branch HEAD SHA.
+- Repository information.
+- Recommended remediation instructions.
+- Relevant committed source and test context.
+
+## 4.3 Processing Workflow
+
+1. Validate the findings report and verify its associated feature-branch SHA.
+2. Record the original feature branch and its exact HEAD commit.
+3. Create a dedicated remediation branch from that recorded feature-branch commit.
+4. Confirm that the new branch is the active working branch.
+5. Apply all safely actionable fixes.
+6. Add or update tests where appropriate.
+7. Record each modification and its corresponding finding ID.
+8. Run permitted tests and validation checks.
+9. Review the resulting diff and ensure unrelated files have not changed.
+10. Commit the remediation changes.
+11. Push only the remediation branch.
+12. Create a pull request targeting the original feature branch.
+13. Include the findings report, change documentation and validation results.
+14. Wait for developer review and approval before merging.
+
+If a finding cannot be fixed safely or requires additional business information, the agent must document it as unresolved instead of guessing.
+
+## 4.4 Architecture
+
+```mermaid
+flowchart TD
+    A["Validated Findings Report"] --> B["Findings & SHA Verification"]
+    B --> C["Record Original Feature Branch"]
+    C --> D["Create Dedicated Remediation Branch"]
+    D --> E["Verify Branch Isolation"]
+    E --> F["Apply Actionable Fixes"]
+    F --> G["Update or Add Tests"]
+    G --> H["Generate Change Documentation"]
+    H --> I["Run Tests & Validation"]
+    I --> J["Review Remediation Diff"]
+    J --> K{"Validation Successful?"}
+    K -->|Yes| L["Commit Remediation Changes"]
+    K -->|No| M["Document Failures & Unresolved Findings"]
+    M --> N["Prepare Reviewable Remediation Result"]
+    L --> O["Push Remediation Branch"]
+    O --> P["Create PR to Original Feature Branch"]
+    P --> Q["Developer Review & Approval"]
+    Q --> R["Merge After Approval"]
+```
+
+## 4.5 Remediation Branch Strategy
+
+Example:
+
+```text
+main
+  |
+  +---- feature/user-search
+              |
+              +---- remediation/feature-user-search
+```
+
+The remediation branch is created from the original feature branch's recorded HEAD.
+
+The original feature branch remains unchanged by the remediation agent.
+
+If the original feature branch advances while remediation is in progress, the agent must detect the change and stop for reconciliation or restart from a newly verified snapshot.
+
+## 4.6 Change Documentation
+
+Every remediation must be documented.
+
+| Field | Description |
+|---|---|
+| Finding ID | Reference to the original finding |
+| File modified | File changed by remediation |
+| Issue identified | Original problem |
+| Fix applied | Description of the remediation |
+| Before/after summary | What changed |
+| Tests added/updated | Related test changes |
+| Validation result | Pass, fail or not executed |
+| Unresolved issues | Items not safely remediated |
+
+The pull request should contain this information so the developer can understand and review every modification.
+
+## 4.7 Safety Controls
+
+- Never checkout the original feature branch for modification.
+- Never commit or push directly to the original feature branch.
+- Never modify the base branch.
+- Restrict write permissions to the remediation branch and approved repository operations.
+- Verify the branch name and starting commit before editing.
+- Prevent force-pushes and unauthorized branch operations.
+- Detect unexpected changes to the original feature branch.
+- Do not merge automatically.
+- Preserve branch protection and normal review requirements.
+
+---
+
+# 5. Master Plan: Integrated High-Level Architecture
+
+## 5.1 Overall Architecture
+
+The three processes operate as a sequential workflow. Each process has a defined responsibility and passes a structured output to the next process.
+
+```mermaid
+flowchart TD
+    A["Developer Commits Code to Feature Branch"] --> B["Git Repository"]
+    B --> C["PROCESS 1: CONTEXT ACQUISITION"]
+    
+    subgraph P1["Process 1 - Context Acquisition Agent"]
+        C --> D["Change Detection & Base Identification"]
+        D --> E["Language & Dependency Discovery"]
+        E --> F["Related Code, Tests & Configuration"]
+        F --> G["Committed Context Package"]
+    end
+
+    G --> H["PROCESS 2: VALIDATION & ANALYSIS"]
+
+    subgraph P2["Process 2 - Validation & Analysis Agent"]
+        H --> I["Security Analysis"]
+        H --> J["Correctness & Regression Analysis"]
+        H --> K["Test Coverage Analysis"]
+        I --> L["Finding Validation"]
+        J --> L
+        K --> L
+        L --> M["Structured Findings Report"]
+    end
+
+    M --> N["PROCESS 3: AUTOMATED FIXATION"]
+
+    subgraph P3["Process 3 - Automated Fixation Agent"]
+        N --> O["Create Dedicated Remediation Branch"]
+        O --> P["Apply Fixes & Update Tests"]
+        P --> Q["Document All Changes"]
+        Q --> R["Run Validation"]
+        R --> S["Commit & Push Remediation Branch"]
+        S --> T["Create Pull Request"]
+    end
+
+    T --> U["Developer Review & Approval"]
+    U --> V{"Approved?"}
+    V -->|Changes Requested| W["Update Remediation Branch"]
+    W --> P
+    V -->|Rejected| X["Close or Abandon Remediation PR"]
+    V -->|Approved| Y["Merge into Original Feature Branch"]
+    Y --> Z["Normal Feature Branch Review & Security Pipeline"]
+    Z --> AA["Standard Approval & Base Branch Merge"]
+```
+
+## 5.2 End-to-End Data Flow
+
+| Stage | Process | Input | Output |
+|---|---|---|---|
+| 1 | Context Acquisition | Feature branch and base branch | Structured context package |
+| 2 | Validation & Analysis | Context package and committed diff | Findings report |
+| 3 | Automated Fixation | Findings report and original feature SHA | Remediation branch |
+| 4 | Documentation | Applied changes and test results | Remediation documentation |
+| 5 | Developer Review | Remediation PR | Approval or change request |
+| 6 | Integration | Approved remediation PR | Updated feature branch |
+| 7 | Standard pipeline | Updated feature branch | Normal security checks and base-branch approval |
+
+## 5.3 Responsibility Separation
+
+| Responsibility | Context Acquisition | Validation & Analysis | Automated Fixation |
+|---|---|---|---|
+| Read Git history | Yes | Uses supplied evidence | Yes, for branch operations |
+| Discover dependencies | Yes | Consumes context | Uses relevant context |
+| Analyse vulnerabilities | No | Yes | No independent replacement for review |
+| Identify defects | No | Yes | Uses validated findings |
+| Modify source files | No | No | Yes |
+| Create branches | No | No | Yes |
+| Run tests | No | No in initial milestone | Yes, subject to permissions |
+| Document changes | Context metadata | Findings report | Remediation report |
+| Create PR | No | No | Yes |
+
+## 5.4 Data Contracts Between Processes
+
+To keep the agents independent, they should communicate through structured JSON artifacts.
+
+**Process 1 → Process 2: `context-package.json`**
+
+Contains:
+- Repository and branch metadata.
+- Base, HEAD and merge-base SHAs.
+- Changed files.
+- Relevant context files.
+- Before/after committed versions.
+- Context-selection reasons.
+- Omission and validation information.
+
+**Process 2 → Process 3: `findings-report.json`**
+
+Contains:
+- Snapshot identifiers.
+- Finding IDs and affected files.
+- Severity and confidence.
+- Evidence and impact.
+- Recommended fixes.
+- Suggested tests.
+- Validation gaps.
+
+**Process 3 → Developer: `remediation-report.json`**
+
+Contains:
+- Original feature-branch identity.
+- Remediation branch and starting SHA.
+- Applied fixes mapped to finding IDs.
+- Files modified.
+- Test and validation results.
+- Unresolved findings.
+- Pull request reference.
+
+These contracts ensure that one agent does not need to repeat the work of another.
+
+---
+
+# 6. Technology and Component Architecture
+
+| Component | Proposed technology / mechanism |
+|---|---|
+| Repository integration | Git |
+| Change detection | Git diff, merge-base and Git object inspection |
+| Context collector | Node.js script |
+| Language detection | File extensions and project manifests |
+| Java discovery | Static source/import analysis, Maven and Gradle conventions |
+| Python discovery | Static import analysis and project conventions |
+| Node.js discovery | Static import/require analysis and package manifests |
+| AI agents | VS Code GitHub Copilot custom agents |
+| Agent instructions | Agent configuration and reusable skills |
+| Findings storage | Structured JSON artifacts |
+| Remediation | AI-assisted code modifications |
+| Validation | Project-specific test and validation commands |
+| Version control | Dedicated remediation branches |
+| Review workflow | GitHub/GitLab pull request or merge request |
+
+The exact repository hosting platform and final integration mechanisms will be confirmed during implementation.
+
+---
+
+# 7. Implementation Roadmap
+
+| Phase | Work item | Status |
+|---|---|---|
+| 1 | Requirement analysis and architecture definition | Completed |
+| 2 | Git-based committed change detection | Implemented |
+| 3 | Read-only security reviewer agent | Implemented |
+| 4 | Initial SQL injection review demonstration | Demonstrated |
+| 5 | Collector and acceptance testing | Initial tests passing |
+| 6 | Automatic context discovery for Java, Python and Node.js | Planned |
+| 7 | Context package and reviewer integration | Planned |
+| 8 | Expanded validation and analysis capabilities | Planned |
+| 9 | Structured findings-to-remediation contract | Planned |
+| 10 | Remediation agent and branch isolation | Planned |
+| 11 | Automatic fix application and change documentation | Planned |
+| 12 | Test execution and remediation validation | Planned |
+| 13 | Pull request creation and developer approval | Planned |
+| 14 | Feature-branch integration and final security pipeline | Planned |
+
+**Current implementation boundary:** The existing collector supports Git-based change detection, explicit base confirmation and manually requested committed context. Automatic language-aware context discovery is not yet implemented. The read-only reviewer exists, while the automated remediation agent and its branch controls remain future milestones.
+
+---
+
+# 8. Security, Governance and Final Acceptance Criteria
+
+The system will be considered ready for an integrated POC when the following conditions are demonstrated:
+
+1. Only the agreed committed feature-branch changes are reviewed.
+2. Relevant existing base-branch code and dependencies are included as context.
+3. Context selection and omissions are traceable.
+4. Findings are supported by concrete code evidence.
+5. Existing vulnerabilities are distinguished from newly introduced or worsened issues.
+6. The analysis agent cannot modify repository files or Git state.
+7. The remediation agent creates its own branch from the verified feature-branch commit.
+8. The original feature branch and base branch are not directly modified by remediation.
+9. Every applied fix is documented and linked to a finding.
+10. Tests and validation results are recorded accurately.
+11. A remediation PR is created against the original feature branch.
+12. A human reviews and approves changes before integration.
+13. The normal feature-branch security and approval pipeline remains in place.
+
+## 9. Expected Final Outcome
+
+The completed solution will provide an end-to-end AI-assisted code review and remediation workflow:
+
+**Context Acquisition → Validation & Analysis → Automated Fixation → Developer Approval → Feature Branch Integration**
+
+The three-process architecture provides separation of responsibilities, traceability and controlled automation. It allows the solution to understand existing repository logic, identify issues in new changes, apply fixes in an isolated branch and provide developers with a documented, reviewable remediation result.
