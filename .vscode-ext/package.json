@@ -1,0 +1,222 @@
+{
+  "name": "ai-remediation-agent",
+  "displayName": "AI Code Remediation Agent",
+  "description": "Automated security analysis and remediation for GitHub & GitLab with pre/post-commit hooks",
+  "version": "0.1.0",
+  "publisher": "remediation-agent",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/frenzydenzy/remediation-agent-.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=18.0.0"
+  },
+  "categories": [
+    "Other",
+    "Security",
+    "Linters"
+  ],
+  "keywords": [
+    "security",
+    "remediation",
+    "code-analysis",
+    "github",
+    "gitlab",
+    "pre-commit",
+    "post-commit"
+  ],
+  "icon": "media/icon.png",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "remediationAgent.authenticate",
+        "title": "Remediation Agent: Authenticate with GitHub/GitLab"
+      },
+      {
+        "command": "remediationAgent.runAnalysis",
+        "title": "Remediation Agent: Run Full Analysis"
+      },
+      {
+        "command": "remediationAgent.openSettings",
+        "title": "Remediation Agent: Open Settings"
+      },
+      {
+        "command": "remediationAgent.viewSecurityPanel",
+        "title": "Remediation Agent: View Security Panel"
+      },
+      {
+        "command": "remediationAgent.viewSummaryPanel",
+        "title": "Remediation Agent: View Summary Panel"
+      },
+      {
+        "command": "remediationAgent.clearCache",
+        "title": "Remediation Agent: Clear Analysis Cache"
+      },
+      {
+        "command": "remediationAgent.logout",
+        "title": "Remediation Agent: Logout from Platforms"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "remediationAgent.analysisHistory",
+          "name": "Analysis History",
+          "when": "remediationAgent.installed"
+        },
+        {
+          "id": "remediationAgent.recommendations",
+          "name": "Recommendations",
+          "when": "remediationAgent.installed"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AI Remediation Agent",
+      "properties": {
+        "remediationAgent.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable AI Remediation Agent"
+        },
+        "remediationAgent.github.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable GitHub integration"
+        },
+        "remediationAgent.github.oauthClientId": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub OAuth Client ID (optional - uses default if not set)"
+        },
+        "remediationAgent.gitlab.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable GitLab integration"
+        },
+        "remediationAgent.gitlab.oauthClientId": {
+          "type": "string",
+          "default": "",
+          "description": "GitLab OAuth Client ID (optional - uses default if not set)"
+        },
+        "remediationAgent.gitlab.url": {
+          "type": "string",
+          "default": "https://gitlab.com",
+          "description": "GitLab instance URL (for self-hosted GitLab)"
+        },
+        "remediationAgent.preCommit.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable pre-commit security analysis"
+        },
+        "remediationAgent.preCommit.blockOnCritical": {
+          "type": "boolean",
+          "default": true,
+          "description": "Block commits when CRITICAL issues are found"
+        },
+        "remediationAgent.preCommit.blockOnHigh": {
+          "type": "boolean",
+          "default": false,
+          "description": "Block commits when HIGH issues are found"
+        },
+        "remediationAgent.preCommit.timeout": {
+          "type": "number",
+          "default": 30000,
+          "description": "Pre-commit analysis timeout in milliseconds"
+        },
+        "remediationAgent.postCommit.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable post-commit full analysis"
+        },
+        "remediationAgent.postCommit.showPanel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show summary panel after commit"
+        },
+        "remediationAgent.postCommit.timeout": {
+          "type": "number",
+          "default": 60000,
+          "description": "Post-commit analysis timeout in milliseconds"
+        },
+        "remediationAgent.ui.theme": {
+          "type": "string",
+          "enum": ["auto", "light", "dark"],
+          "default": "auto",
+          "description": "UI theme for panels"
+        },
+        "remediationAgent.ui.notifications": {
+          "type": "string",
+          "enum": ["all", "important", "none"],
+          "default": "all",
+          "description": "Notification level"
+        },
+        "remediationAgent.ui.inlineDiagnostics": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline diagnostics in editor"
+        },
+        "remediationAgent.cache.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cache analysis results"
+        },
+        "remediationAgent.cache.duration": {
+          "type": "number",
+          "default": 3600000,
+          "description": "Cache duration in milliseconds (default: 1 hour)"
+        },
+        "remediationAgent.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug logging"
+        }
+      }
+    },
+    "statusBar": [
+      {
+        "id": "remediationAgent.status",
+        "alignment": "left",
+        "priority": 100
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.40.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "@vscode/vsce": "^2.15.0",
+    "axios": "^1.6.0",
+    "date-fns": "^2.30.0",
+    "dotenv": "^16.3.0",
+    "mermaid": "^10.6.0",
+    "simple-oauth2": "^4.3.0"
+  }
+}
