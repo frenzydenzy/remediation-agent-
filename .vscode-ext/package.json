@@ -15,7 +15,7 @@
   },
   "categories": [
     "Other",
-    "Security",
+    "Testing",
     "Linters"
   ],
   "keywords": [
@@ -27,7 +27,6 @@
     "pre-commit",
     "post-commit"
   ],
-  "icon": "media/icon.png",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -61,19 +60,69 @@
       {
         "command": "remediationAgent.logout",
         "title": "Remediation Agent: Logout from Platforms"
+      },
+      {
+        "command": "remediation.refreshHistory",
+        "title": "Refresh History",
+        "category": "Remediation Agent",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "remediation.clearHistory",
+        "title": "Clear History",
+        "category": "Remediation Agent",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "remediation.viewAnalysis",
+        "title": "View Analysis Details",
+        "category": "Remediation Agent"
+      },
+      {
+        "command": "remediation.clearRecommendations",
+        "title": "Clear Recommendations",
+        "category": "Remediation Agent",
+        "icon": "$(trash)"
       }
     ],
     "views": {
       "explorer": [
         {
-          "id": "remediationAgent.analysisHistory",
+          "id": "remediation-history",
           "name": "Analysis History",
+          "icon": "$(history)",
           "when": "remediationAgent.installed"
         },
         {
-          "id": "remediationAgent.recommendations",
-          "name": "Recommendations",
+          "id": "remediation-recommendations",
+          "name": "Security Recommendations",
+          "icon": "$(lightbulb)",
           "when": "remediationAgent.installed"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "remediation.refreshHistory",
+          "when": "view == remediation-history",
+          "group": "navigation"
+        },
+        {
+          "command": "remediation.clearHistory",
+          "when": "view == remediation-history",
+          "group": "navigation"
+        },
+        {
+          "command": "remediation.clearRecommendations",
+          "when": "view == remediation-recommendations",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "remediation.viewAnalysis",
+          "when": "viewItem == analysis"
         }
       ]
     },

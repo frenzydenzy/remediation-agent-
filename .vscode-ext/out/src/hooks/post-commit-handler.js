@@ -1,0 +1,156 @@
+"use strict";
+/**
+ * Post-Commit Handler - Executes full Phase 4.4-4.8 analysis pipeline
+ * Called after successful commit to generate reports and diagrams
+ * Displays summary panel in VS Code
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PostCommitHandler = void 0;
+const child_process_1 = require("child_process");
+const util_1 = require("util");
+const execAsync = (0, util_1.promisify)(child_process_1.exec);
+class PostCommitHandler {
+    constructor(logger, backend, configManager, gitDir, uiManager) {
+        this.logger = logger;
+        this.backend = backend;
+        this.configManager = configManager;
+        this.gitDir = gitDir;
+        this.uiManager = uiManager;
+    }
+    async execute() {
+        try {
+            this.logger.info('📊 Post-commit handler starting');
+            const config = this.configManager.getConfig();
+            if (!config.postCommit.enabled) {
+                this.logger.info('Post-commit analysis disabled');
+                return { success: true, reason: 'Disabled in settings' };
+            }
+            // 1. Get current commit information
+            const commitInfo = await this.getCommitInfo();
+            if (!commitInfo) {
+                this.logger.error('Failed to get commit information');
+                return { success: false, reason: 'Failed to get commit info' };
+            }
+            this.logger.info(`Analyzing commit: ${commitInfo.sha.substring(0, 7)}`);
+            this.logger.info(`Message: ${commitInfo.message}`);
+            // 2. Get changed files in this commit
+            const changedFiles = await this.getChangedFiles(commitInfo.sha);
+            this.logger.info(`Files changed: ${changedFiles.length}`);
+            // 3. Run full analysis pipeline (Phase 4.4-4.8)
+            const result = await this.backend.runFullAnalysis();
+            if (!result.success) {
+                this.logger.error(`Full analysis failed: ${result.error}`);
+                return { success: false, reason: `Analysis failed: ${result.error}` };
+            }
+            const analysisResult = result.data;
+            this.logger.info(`✅ Analysis complete`);
+            this.logger.info(`Impact Level: ${analysisResult.overallLevel}`);
+            this.logger.info(`Confidence: ${analysisResult.metrics.confidence}%`);
+            this.logger.info(`Issues Found: ${analysisResult.findings.length}`);
+            // Show analysis summary in UI
+            if (this.uiManager) {
+                try {
+                    await this.uiManager.showAnalysisSummary(analysisResult);
+                }
+                catch (uiError) {
+                    this.logger.error(`Failed to show analysis summary: ${uiError}`);
+                }
+            }
+            return {
+                success: true,
+                reason: 'Analysis complete',
+                analysis: analysisResult,
+                commitInfo,
+                changedFiles,
+                duration: result.duration,
+            };
+        }
+        catch (error) {
+            this.logger.error(`Post-commit handler error: ${error}`);
+            return { success: false, reason: `Handler error: ${error}` };
+        }
+    }
+    /**
+     * Get information about the current commit
+     */
+    async getCommitInfo() {
+        try {
+            // Get commit SHA
+            const { stdout: sha } = await execAsync('git rev-parse HEAD', {
+                cwd: this.gitDir,
+            });
+            // Get commit message
+            const { stdout: message } = await execAsync('git log -1 --pretty=%B', {
+                cwd: this.gitDir,
+            });
+            // Get author
+            const { stdout: author } = await execAsync('git log -1 --pretty=%an', {
+                cwd: this.gitDir,
+            });
+            // Get timestamp
+            const { stdout: timestamp } = await execAsync('git log -1 --pretty=%ai', {
+                cwd: this.gitDir,
+            });
+            return {
+                sha: sha.trim(),
+                message: message.trim(),
+                author: author.trim(),
+                timestamp: timestamp.trim(),
+            };
+        }
+        catch (error) {
+            this.logger.error(`Failed to get commit info: ${error}`);
+            return null;
+        }
+    }
+    /**
+     * Get list of files changed in commit
+     */
+    async getChangedFiles(commitSha) {
+        try {
+            const { stdout } = await execAsync(`git show --name-only --pretty= ${commitSha}`, {
+                cwd: this.gitDir,
+                maxBuffer: 10 * 1024 * 1024,
+            });
+            const files = stdout
+                .split('\n')
+                .map((f) => f.trim())
+                .filter((f) => f.length > 0);
+            return files;
+        }
+        catch (error) {
+            this.logger.error(`Failed to get changed files: ${error}`);
+            return [];
+        }
+    }
+    /**
+     * Format summary for display
+     */
+    formatSummary(analysis, commitInfo) {
+        let output = '📊 Change Impact Summary\n';
+        output += '═══════════════════════════════════\n\n';
+        output += `Commit: ${commitInfo.sha.substring(0, 7)}\n`;
+        output += `Author: ${commitInfo.author}\n`;
+        output += `Message: ${commitInfo.message.split('\n')[0]}\n\n`;
+        output += `Impact Level: ${analysis.overallLevel.toUpperCase()}\n`;
+        output += `Confidence: ${analysis.metrics.confidence}%\n`;
+        output += `Issues: ${analysis.findings.length}\n\n`;
+        output += 'Metrics:\n';
+        if (analysis.metrics) {
+            output += `  Files: ${analysis.metrics.filesChanged}\n`;
+            output += `  Lines +: ${analysis.metrics.linesAdded}\n`;
+            output += `  Lines -: ${analysis.metrics.linesDeleted}\n`;
+            output += `  Complexity: ${analysis.metrics.complexity}\n`;
+            output += `  Risk: ${analysis.metrics.risklevel}\n`;
+        }
+        if (analysis.recommendations && analysis.recommendations.length > 0) {
+            output += '\nRecommendations:\n';
+            analysis.recommendations.forEach((rec) => {
+                output += `  • ${rec}\n`;
+            });
+        }
+        return output;
+    }
+}
+exports.PostCommitHandler = PostCommitHandler;
+//# sourceMappingURL=post-commit-handler.js.map

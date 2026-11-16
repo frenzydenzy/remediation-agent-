@@ -12,12 +12,43 @@ import { StatusBarManager } from './ui/status-bar';
 import { ConfigManager } from './config/config-manager';
 import { BackendCommunicator } from './engine-integration/backend-communicator';
 
+// Phase 7.9: Tree View Providers
+import { AnalysisHistoryProvider } from './views/analysis-history';
+import { RecommendationsProvider } from './views/recommendations';
+
+// Phase 7.10: Inline Diagnostics
+import { InlineDiagnostics } from './ui/diagnostics';
+
+// Phase 7.8: UI Panels
+import { SecurityPanel } from './ui/security-panel';
+import { SummaryPanel } from './ui/summary-panel';
+import { UIManager } from './ui/ui-manager';
+
+// Phase 7.7: Handlers
+import { PreCommitHandler } from './hooks/pre-commit-handler';
+import { PostCommitHandler } from './hooks/post-commit-handler';
+
 let logger: Logger;
 let oauthManager: OAuthManager;
 let hookManager: HookManager;
 let statusBar: StatusBarManager;
 let configManager: ConfigManager;
 let backend: BackendCommunicator;
+
+// Phase 7.9: Tree view providers
+let historyProvider: AnalysisHistoryProvider;
+let recommendationsProvider: RecommendationsProvider;
+
+// Phase 7.10: Inline diagnostics
+let diagnostics: InlineDiagnostics;
+
+// Phase 7.8: UI panels
+let securityPanel: SecurityPanel;
+let summaryPanel: SummaryPanel;
+
+// Phase 7.7: Handlers
+let preCommitHandler: PreCommitHandler;
+let postCommitHandler: PostCommitHandler;
 
 export async function activate(context: vscode.ExtensionContext) {
   try {
@@ -52,11 +83,43 @@ export async function activate(context: vscode.ExtensionContext) {
     statusBar = new StatusBarManager(logger);
     statusBar.show();
 
+    // ===== PHASE 7.9: Initialize Tree View Providers =====
+    historyProvider = new AnalysisHistoryProvider(logger);
+    recommendationsProvider = new RecommendationsProvider(logger);
+
+    // Register tree data providers
+    vscode.window.registerTreeDataProvider('remediation-history', historyProvider);
+    vscode.window.registerTreeDataProvider('remediation-recommendations', recommendationsProvider);
+
+    context.subscriptions.push(historyProvider);
+    context.subscriptions.push(recommendationsProvider);
+    logger.info('✓ Tree view providers registered');
+
+    // ===== PHASE 7.10: Initialize Inline Diagnostics =====
+    diagnostics = new InlineDiagnostics(context, logger);
+    context.subscriptions.push(diagnostics);
+    logger.info('✓ Inline diagnostics initialized');
+
+    // ===== PHASE 7.8: Initialize UI Panels =====
+    securityPanel = new SecurityPanel(logger);
+    summaryPanel = new SummaryPanel(logger);
+    context.subscriptions.push(securityPanel, summaryPanel);
+    logger.info('✓ UI panels initialized');
+
+    // Initialize UIManager to coordinate all UI components
+    const uiManager = new UIManager(securityPanel, summaryPanel, diagnostics, historyProvider, recommendationsProvider, logger);
+    logger.info('✓ UIManager initialized');
+
+    // ===== PHASE 7.7: Initialize Handlers =====
+    preCommitHandler = new PreCommitHandler(logger, backend, configManager, workspace.uri.fsPath, uiManager);
+    postCommitHandler = new PostCommitHandler(logger, backend, configManager, workspace.uri.fsPath, uiManager);
+    logger.info('✓ Handlers initialized');
+
     // Register commands
-    registerCommands(context, oauthManager, backend, hookManager, logger);
+    registerCommands(context, oauthManager, backend, hookManager, logger, historyProvider, recommendationsProvider);
 
     // Set up event listeners
-    setupEventListeners(context, hookManager, backend, logger);
+    setupEventListeners(context, hookManager, backend, logger, historyProvider, recommendationsProvider);
 
     // Install hooks if not already installed
     if (!context.globalState.get('hooks-installed')) {
@@ -81,7 +144,9 @@ function registerCommands(
   oauth: OAuthManager,
   backend: BackendCommunicator,
   hooks: HookManager,
-  log: Logger
+  log: Logger,
+  history: AnalysisHistoryProvider,
+  recommendations: RecommendationsProvider
 ) {
   // Authenticate command
   context.subscriptions.push(
@@ -160,13 +225,72 @@ function registerCommands(
       }
     })
   );
+
+  // ===== PHASE 7.11: Tree View Commands =====
+
+  // Refresh history command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('remediation.refreshHistory', () => {
+      history.refresh();
+      recommendations.refresh();
+      log.info('User refreshed history');
+      vscode.window.showInformationMessage('✓ History refreshed');
+    })
+  );
+
+  // Clear history command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('remediation.clearHistory', async () => {
+      const choice = await vscode.window.showWarningMessage(
+        'Clear all analysis history?',
+        'Clear',
+        'Cancel'
+      );
+
+      if (choice === 'Clear') {
+        history.clearAll?.();
+        log.info('User cleared history');
+        vscode.window.showInformationMessage('✓ History cleared');
+      }
+    })
+  );
+
+  // View analysis details command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('remediation.viewAnalysis', async (item) => {
+      if (item?.data) {
+        const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri || context.extensionUri;
+        summaryPanel.show(item.data, workspaceUri);
+        logger.info('User viewing analysis details');
+      }
+    })
+  );
+
+  // Clear recommendations command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('remediation.clearRecommendations', async () => {
+      const choice = await vscode.window.showWarningMessage(
+        'Clear all recommendations?',
+        'Clear',
+        'Cancel'
+      );
+
+      if (choice === 'Clear') {
+        recommendations.clearAll?.();
+        log.info('User cleared recommendations');
+        vscode.window.showInformationMessage('✓ Recommendations cleared');
+      }
+    })
+  );
 }
 
 function setupEventListeners(
   context: vscode.ExtensionContext,
   hooks: HookManager,
   backend: BackendCommunicator,
-  log: Logger
+  log: Logger,
+  history: AnalysisHistoryProvider,
+  recommendations: RecommendationsProvider
 ) {
   // Listen for configuration changes
   context.subscriptions.push(
