@@ -47,6 +47,9 @@ class PostCommitHandler {
             this.logger.info(`Impact Level: ${analysisResult.overallLevel}`);
             this.logger.info(`Confidence: ${analysisResult.metrics.confidence}%`);
             this.logger.info(`Issues Found: ${analysisResult.findings.length}`);
+            // FIX 3: Don't push automatically - let user push manually
+            // This prevents git credential failures and allows user control
+            this.logger.info('📌 Analysis results ready. Push changes manually: git push origin main');
             // Show analysis summary in UI
             if (this.uiManager) {
                 try {

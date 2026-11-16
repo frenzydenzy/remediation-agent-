@@ -46,6 +46,27 @@ class BackendCommunicator {
         // Phase 6 backend is at the parent directory
         this.backendPath = path.resolve(__dirname, '../../../.github/skills/ai-change-impact-analysis');
     }
+    /**
+     * FIX 1: Resolve Node.js executable path
+     * Prevents "spawn node ENOENT" error when running in VS Code context
+     */
+    getNodeExecutable() {
+        try {
+            if (process.platform === 'win32') {
+                // Windows: use where.exe to find node
+                return (0, child_process_1.execSync)('where.exe node', { encoding: 'utf8' }).trim();
+            }
+            else {
+                // Unix/Linux/Mac: use which
+                return (0, child_process_1.execSync)('which node', { encoding: 'utf8' }).trim();
+            }
+        }
+        catch (error) {
+            // Fallback: assume node is in PATH
+            this.logger.warn('Could not resolve absolute node path, falling back to PATH');
+            return 'node';
+        }
+    }
     async runSecurityCheck(stagedFiles) {
         try {
             this.logger.info(`Running security check on ${stagedFiles.length} files`);
@@ -99,8 +120,11 @@ class BackendCommunicator {
                     `--command=${command}`,
                     `--params=${JSON.stringify(params)}`,
                 ];
+                // FIX 1: Use resolved Node path instead of relying on PATH
+                const nodePath = this.getNodeExecutable();
+                this.logger.debug(`Spawning node at: ${nodePath}`);
                 // Start Node process
-                const process = (0, child_process_1.spawn)('node', args, {
+                const process = (0, child_process_1.spawn)(nodePath, args, {
                     cwd: this.backendPath,
                     stdio: ['pipe', 'pipe', 'pipe'],
                 });

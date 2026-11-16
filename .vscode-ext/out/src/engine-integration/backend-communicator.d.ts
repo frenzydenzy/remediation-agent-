@@ -9,6 +9,11 @@ export declare class BackendCommunicator {
     private configManager;
     private backendPath;
     constructor(logger: Logger, configManager: ConfigManager);
+    /**
+     * FIX 1: Resolve Node.js executable path
+     * Prevents "spawn node ENOENT" error when running in VS Code context
+     */
+    private getNodeExecutable;
     runSecurityCheck(stagedFiles: string[]): Promise<EngineResponse>;
     runFullAnalysis(): Promise<EngineResponse>;
     private executeBackend;

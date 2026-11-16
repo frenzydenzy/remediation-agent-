@@ -2,7 +2,7 @@
  * Backend communicator for executing Phase 6 scripts
  */
 
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import * as path from 'path';
 import { Logger } from '../utils/logger';
 import { ConfigManager } from '../config/config-manager';
@@ -14,6 +14,26 @@ export class BackendCommunicator {
   constructor(private logger: Logger, private configManager: ConfigManager) {
     // Phase 6 backend is at the parent directory
     this.backendPath = path.resolve(__dirname, '../../../.github/skills/ai-change-impact-analysis');
+  }
+
+  /**
+   * FIX 1: Resolve Node.js executable path
+   * Prevents "spawn node ENOENT" error when running in VS Code context
+   */
+  private getNodeExecutable(): string {
+    try {
+      if (process.platform === 'win32') {
+        // Windows: use where.exe to find node
+        return execSync('where.exe node', { encoding: 'utf8' }).trim();
+      } else {
+        // Unix/Linux/Mac: use which
+        return execSync('which node', { encoding: 'utf8' }).trim();
+      }
+    } catch (error) {
+      // Fallback: assume node is in PATH
+      this.logger.warn('Could not resolve absolute node path, falling back to PATH');
+      return 'node';
+    }
   }
 
   async runSecurityCheck(stagedFiles: string[]): Promise<EngineResponse> {
@@ -76,8 +96,12 @@ export class BackendCommunicator {
           `--params=${JSON.stringify(params)}`,
         ];
 
+        // FIX 1: Use resolved Node path instead of relying on PATH
+        const nodePath = this.getNodeExecutable();
+        this.logger.debug(`Spawning node at: ${nodePath}`);
+
         // Start Node process
-        const process = spawn('node', args, {
+        const process = spawn(nodePath, args, {
           cwd: this.backendPath,
           stdio: ['pipe', 'pipe', 'pipe'],
         });

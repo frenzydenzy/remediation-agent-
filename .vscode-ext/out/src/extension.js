@@ -81,6 +81,9 @@ async function activate(context) {
         // Initialize core services
         logger = new logger_1.Logger('RemediationAgent');
         logger.info('🚀 Activating AI Remediation Agent Extension');
+        // FIX 2: Ensure Git credential helper is configured
+        // This prevents "git push" failures with credential manager
+        ensureGitCredentialsConfigured();
         configManager = new config_manager_1.ConfigManager();
         const config = configManager.getConfig();
         if (!config.enabled) {
@@ -273,5 +276,44 @@ function deactivate() {
     logger?.info('🛑 Deactivating AI Remediation Agent Extension');
     statusBar?.dispose();
     // Cleanup resources
+}
+/**
+ * FIX 2: Ensure Git credential helper is configured
+ * Prevents "Git Credential Manager" failures during git push
+ */
+function ensureGitCredentialsConfigured() {
+    try {
+        const { execSync } = require('child_process');
+        // Check if credential helper is already configured
+        try {
+            const currentHelper = execSync('git config --global credential.helper', {
+                encoding: 'utf8',
+            }).trim();
+            if (currentHelper) {
+                logger?.debug(`Git credential helper already configured: ${currentHelper}`);
+                return;
+            }
+        }
+        catch {
+            // Not configured, proceed to configure
+        }
+        // Configure credential helper based on platform
+        const platform = process.platform;
+        let credentialHelper = 'manager-core'; // Default for Windows/modern Git
+        if (platform === 'darwin') {
+            credentialHelper = 'osxkeychain'; // macOS
+        }
+        else if (platform === 'linux') {
+            credentialHelper = 'cache'; // Linux
+        }
+        execSync(`git config --global credential.helper ${credentialHelper}`, {
+            stdio: 'pipe',
+        });
+        logger?.info(`✓ Git credential helper configured: ${credentialHelper}`);
+    }
+    catch (error) {
+        logger?.warn(`Failed to configure Git credential helper: ${error}`);
+        // Non-fatal: Continue operation even if configuration fails
+    }
 }
 //# sourceMappingURL=extension.js.map
