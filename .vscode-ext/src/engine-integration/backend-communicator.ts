@@ -12,8 +12,12 @@ export class BackendCommunicator {
   private backendPath: string;
 
   constructor(private logger: Logger, private configManager: ConfigManager) {
-    // Phase 6 backend is at the parent directory
-    this.backendPath = path.resolve(__dirname, '../../../.github/skills/ai-change-impact-analysis');
+    // Phase 6 backend is at the project root
+    // __dirname is at: .vscode-ext/out/src/engine-integration/
+    // We need: ../.github/skills/ai-change-impact-analysis
+    // Path from __dirname: ../../../.github/skills/ai-change-impact-analysis
+    this.backendPath = path.resolve(__dirname, '../../../../.github/skills/ai-change-impact-analysis');
+    this.logger.debug(`Backend path: ${this.backendPath}`);
   }
 
   /**
