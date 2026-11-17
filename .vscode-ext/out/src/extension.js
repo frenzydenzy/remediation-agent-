@@ -59,6 +59,8 @@ const ui_manager_1 = require("./ui/ui-manager");
 // Phase 7.7: Handlers
 const pre_commit_handler_1 = require("./hooks/pre-commit-handler");
 const post_commit_handler_1 = require("./hooks/post-commit-handler");
+// Phase 7.12: Git Event Listener (Integration Fix)
+const git_event_listener_1 = require("./integration/git-event-listener");
 let logger;
 let oauthManager;
 let hookManager;
@@ -76,6 +78,9 @@ let summaryPanel;
 // Phase 7.7: Handlers
 let preCommitHandler;
 let postCommitHandler;
+// Phase 7.12: Git integration (Integration Fix)
+let gitEventListener = null;
+let gitCommandDetector = null;
 async function activate(context) {
     try {
         // Initialize core services
@@ -130,9 +135,9 @@ async function activate(context) {
         postCommitHandler = new post_commit_handler_1.PostCommitHandler(logger, backend, configManager, workspace.uri.fsPath, uiManager);
         logger.info('✓ Handlers initialized');
         // Register commands
-        registerCommands(context, oauthManager, backend, hookManager, logger, historyProvider, recommendationsProvider);
+        registerCommands(context, oauthManager, backend, hookManager, logger, historyProvider, recommendationsProvider, preCommitHandler, postCommitHandler);
         // Set up event listeners
-        setupEventListeners(context, hookManager, backend, logger, historyProvider, recommendationsProvider);
+        setupEventListeners(context, hookManager, backend, logger, historyProvider, recommendationsProvider, workspace, preCommitHandler, postCommitHandler);
         // Install hooks if not already installed
         if (!context.globalState.get('hooks-installed')) {
             await hookManager.setupHooks();
@@ -149,7 +154,7 @@ async function activate(context) {
         vscode.window.showErrorMessage(`Extension activation failed: ${error}`);
     }
 }
-function registerCommands(context, oauth, backend, hooks, log, history, recommendations) {
+function registerCommands(context, oauth, backend, hooks, log, history, recommendations, preCommitHandler, postCommitHandler) {
     // Authenticate command
     context.subscriptions.push(vscode.commands.registerCommand(constants_1.COMMANDS.AUTHENTICATE, async () => {
         try {
@@ -183,6 +188,69 @@ function registerCommands(context, oauth, backend, hooks, log, history, recommen
         catch (error) {
             log.error(`Analysis failed: ${error}`);
             vscode.window.showErrorMessage(`Analysis failed: ${error}`);
+            statusBar.setError();
+        }
+    }));
+    // ===== Phase 7.12: Manual Trigger Commands =====
+    // These allow users to manually trigger analysis when automatic detection doesn't work
+    // Trigger post-commit analysis manually
+    context.subscriptions.push(vscode.commands.registerCommand('remediation.triggerPostCommit', async () => {
+        try {
+            log.info('User manually triggered post-commit analysis');
+            statusBar.setAnalyzing();
+            vscode.window.showInformationMessage('⏳ Running post-commit analysis...');
+            if (!postCommitHandler) {
+                vscode.window.showErrorMessage('Post-commit handler not ready');
+                return;
+            }
+            const result = await postCommitHandler.execute();
+            if (result?.success) {
+                log.info('✅ Post-commit analysis complete');
+                vscode.window.showInformationMessage('✅ Post-commit analysis complete - check the Remediation panel');
+                statusBar.setReady();
+            }
+            else {
+                log.error(`Post-commit analysis failed: ${result?.reason}`);
+                vscode.window.showErrorMessage(`Analysis failed: ${result?.reason}`);
+                statusBar.setError();
+            }
+        }
+        catch (error) {
+            log.error(`Manual post-commit trigger failed: ${error}`);
+            vscode.window.showErrorMessage(`Failed to run analysis: ${error}`);
+            statusBar.setError();
+        }
+    }));
+    // Trigger pre-commit analysis manually
+    context.subscriptions.push(vscode.commands.registerCommand('remediation.triggerPreCommit', async () => {
+        try {
+            log.info('User manually triggered pre-commit analysis');
+            statusBar.setAnalyzing();
+            vscode.window.showInformationMessage('⏳ Running pre-commit security check...');
+            if (!preCommitHandler) {
+                vscode.window.showErrorMessage('Pre-commit handler not ready');
+                return;
+            }
+            const result = await preCommitHandler.execute();
+            if (result?.allowed && !result?.blocking) {
+                log.info('✅ Pre-commit security check passed');
+                vscode.window.showInformationMessage('✅ Security check passed - no blockers');
+                statusBar.setReady();
+            }
+            else if (result?.blocking) {
+                log.warn(`Pre-commit check blocked commit: ${result.reason}`);
+                vscode.window.showWarningMessage(`⚠️ Security issues found: ${result.reason}`);
+                statusBar.setError();
+            }
+            else {
+                log.error(`Pre-commit analysis failed: ${result?.reason}`);
+                vscode.window.showErrorMessage(`Analysis failed: ${result?.reason}`);
+                statusBar.setError();
+            }
+        }
+        catch (error) {
+            log.error(`Manual pre-commit trigger failed: ${error}`);
+            vscode.window.showErrorMessage(`Failed to run analysis: ${error}`);
             statusBar.setError();
         }
     }));
@@ -250,7 +318,7 @@ function registerCommands(context, oauth, backend, hooks, log, history, recommen
         }
     }));
 }
-function setupEventListeners(context, hooks, backend, log, history, recommendations) {
+function setupEventListeners(context, hooks, backend, log, history, recommendations, workspace, preCommit, postCommit) {
     // Listen for configuration changes
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(async (event) => {
         if (event.affectsConfiguration('remediationAgent')) {
@@ -271,6 +339,50 @@ function setupEventListeners(context, hooks, backend, log, history, recommendati
     context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(() => {
         statusBar.update();
     }));
+    // ===== Phase 7.12: Git Event Listener Setup =====
+    // Initialize git event listener for detecting commits
+    setupGitEventListener(context, log, workspace, postCommit, preCommit);
+}
+/**
+ * Phase 7.12 Integration Fix: Proper Git Event Listening
+ * Sets up listeners for git commit/push events to trigger analysis
+ */
+async function setupGitEventListener(context, log, workspace, postCommit, preCommit) {
+    try {
+        log.info('⚙️ Setting up git event detection');
+        // Initialize git event listener
+        gitEventListener = new git_event_listener_1.GitEventListener(log, postCommit, preCommit);
+        const gitListenerReady = await gitEventListener.initialize();
+        if (gitListenerReady) {
+            log.info('✓ Git event listener initialized - listening for commits');
+        }
+        else {
+            log.warn('Git extension not available, using polling mode');
+        }
+        // Also set up command detector for more reliable detection
+        gitCommandDetector = new git_event_listener_1.GitCommandDetector(log, workspace.uri.fsPath, async (commitSha) => {
+            log.info(`📢 Git commit detected: ${commitSha.substring(0, 7)}`);
+            log.info('Running post-commit analysis...');
+            // Trigger post-commit analysis
+            const result = await postCommit.execute();
+            if (result?.success) {
+                log.info('✅ Post-commit analysis complete');
+                vscode.window.showInformationMessage('✅ Code analysis complete - check the Remediation panel');
+            }
+        });
+        gitCommandDetector.start();
+        log.info('✓ Git polling detector started (checks every 2 seconds)');
+        // Register cleanup on extension deactivate
+        context.subscriptions.push({
+            dispose: () => {
+                gitCommandDetector?.dispose();
+                gitEventListener?.dispose();
+            },
+        });
+    }
+    catch (error) {
+        log.error(`Failed to setup git event listener: ${error}`);
+    }
 }
 function deactivate() {
     logger?.info('🛑 Deactivating AI Remediation Agent Extension');
