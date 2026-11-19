@@ -1,2 +1,6 @@
 .test-artifacts/
 node_modules
+sonar-scanner-*/
+cx.exe
+*.vsix
+.remediation/
