@@ -60,7 +60,7 @@ test('Command Injection Detection', () => {
 });
 
 test('Hard-coded Credentials Detection', () => {
-  const content = 'String apiKey = "sk_live_abc123xyz789";';
+  const content = 'String apiKey = "[REDACTED_API_KEY]";';
   const findings = securityAnalyzer.analyzeSecurityPatterns('Config.java', content);
   assertGreater(findings.length, 0, 'Should detect hard-coded credentials');
 });

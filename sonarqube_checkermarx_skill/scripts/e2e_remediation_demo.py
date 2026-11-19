@@ -72,7 +72,7 @@ def vulnerable_database_query(user_id):
 def process_user_input(user_input):
     """Multiple vulnerabilities."""
     # Hardcoded secrets
-    api_key = "sk_live_51234567890abcdef"
+    api_key = "[REDACTED_API_KEY_EXAMPLE]"
     password = "SuperSecret123!"
     
     # Weak crypto

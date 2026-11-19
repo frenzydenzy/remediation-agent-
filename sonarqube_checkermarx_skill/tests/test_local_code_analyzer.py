@@ -347,7 +347,7 @@ def get_user(user_id):
     return db.execute(query)
 
 # Hardcoded secret
-API_KEY = "sk_live_1234567890abcdefghijklmnopqrst"
+API_KEY = "[REDACTED_API_KEY_EXAMPLE]"
 PASSWORD = "AdminPassword123!"
 
 # Weak cryptography

@@ -35,7 +35,7 @@ const testFiles = {
     name: 'VulnerableCredentials.java',
     content: `
       public class VulnerableCredentials {
-        private String apiKey = "sk_live_abc123xyz789";
+        private String apiKey = "[REDACTED_API_KEY]";
         private String password = "MySecurePass123!";
       }
     `,

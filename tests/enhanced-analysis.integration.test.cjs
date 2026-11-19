@@ -41,7 +41,7 @@ public class UserService {
     String query = "SELECT * FROM users WHERE id = " + userId;
     
     // Hard-coded credential
-    String apiKey = "sk_live_abc123xyz789";
+    String apiKey = "[REDACTED_API_KEY]";
     
     // Weak Hash
     MessageDigest md = MessageDigest.getInstance("MD5");
